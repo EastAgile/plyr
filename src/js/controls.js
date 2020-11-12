@@ -863,6 +863,8 @@ const controls = {
 
       case 'quality':
         if (is.number(value)) {
+          if (this.isVimeo && value === 0) return 'Auto';
+
           const label = i18n.get(`qualityLabel.${value}`, this.config);
 
           if (!label.length) {
@@ -1599,6 +1601,8 @@ const controls = {
     // Set available quality levels
     if (this.isHTML5) {
       setQualityMenu.call(this, html5.getQualityOptions.call(this));
+    } else if (this.isVimeo) {
+      setQualityMenu.call(this, this.embed.qualities);
     }
 
     setSpeedMenu.call(this);

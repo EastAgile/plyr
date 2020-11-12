@@ -121,13 +121,13 @@ const vimeo = {
       wrapper.appendChild(iframe);
       player.media = replaceElement(wrapper, player.media);
     }
-    
+
     // Get poster image
     fetch(format(player.config.urls.vimeo.api, src)).then(response => {
       if (is.empty(response) || !response.thumbnail_url) {
         return;
       }
-      
+
       // Set and show poster
       ui.setPoster.call(player, response.thumbnail_url).catch(() => { });
     });
@@ -138,6 +138,7 @@ const vimeo = {
       autopause: player.config.autopause,
       muted: player.muted,
     });
+
 
     player.media.paused = true;
     player.media.currentTime = 0;
@@ -324,9 +325,29 @@ const vimeo = {
       const strippedCues = cues.map(cue => stripHTML(cue.text));
       captions.updateCues.call(player, strippedCues);
     });
+    player.embed.ready().then(() => {
+      console.log('ready---------');
+      player.embed.qualities = [];
+      player.embed.getQualities()
+        .then((qualities) => {
+          console.log('qualities------------', qualities);
+          player.embed.qualities = qualities.map(q => {
+            return q.id === 'auto' ? 0 : parseInt(q.id);
+          });
 
+          // controls.setQualityMenu.call(player, player.embed.qualities);
+
+          ui.build.call(player);
+        })
+        .catch(e => console.log('-----------error=======', e));
+
+    }).catch((error) => {
+      console.log('Not ready', error);
+    })
     player.embed.on('loaded', () => {
       // Assure state and events are updated on autoplay
+      // // player.embed.qualities = [];
+
       player.embed.getPaused().then(paused => {
         assurePlaybackState.call(player, !paused);
         if (!paused) {
@@ -400,8 +421,31 @@ const vimeo = {
       triggerEvent.call(player, player.media, 'error');
     });
 
-    // Rebuild UI
-    setTimeout(() => ui.build.call(player), 0);
+    player.embed.on('qualitychange', (event) => {
+      player.embed.quality = event.quality === 'auto' ? 0 : parseInt(event.quality);
+    });
+
+    // Quality
+    Object.defineProperty(player.media, 'quality', {
+      get() {
+        return player.embed.quality;
+      },
+      set(input) {
+        if (player.quality === input) {
+          return;
+        }
+        player.embed.quality = input;
+        setTimeout(() =>{
+          const quality = input > 0 ? `${input}p` : 'auto';
+          player.embed.setQuality(quality);
+          console.log('set quality---', quality);
+        }, 500)
+        // // Trigger change event
+        triggerEvent.call(player, player.media, 'qualitychange', false, {
+          quality: input,
+        });
+      },
+    });
   },
 };
 
