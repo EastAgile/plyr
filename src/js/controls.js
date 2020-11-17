@@ -1598,6 +1598,15 @@ const controls = {
       }
     });
 
+    const customControls = is.array(this.config.customControls) ? this.config.customControls : [];
+    customControls.forEach((control) => {
+      const { key, onClick, callback } = control;
+      const button = createButton.call(this, key, defaultAttributes);
+      button.addEventListener('click', onClick);
+      container.appendChild(button);
+      callback(button);
+    });
+
     // Set available quality levels
     if (this.isHTML5) {
       setQualityMenu.call(this, html5.getQualityOptions.call(this));
