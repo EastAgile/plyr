@@ -92,6 +92,12 @@ class Plyr {
         panels: {},
         buttons: {},
       },
+      speed: {
+        popup: null,
+        menu: null,
+        panels: {},
+        buttons: {},
+      },
     };
 
     // Captions
@@ -594,6 +600,30 @@ class Plyr {
     this.increaseVolume(-step);
   }
 
+  increaseSpeed() {
+    const index = this.options.speed.indexOf(this.speed);
+    let newSpeed = this.speed;
+    if (index < this.options.speed.length - 1) {
+      newSpeed = this.options.speed[index + 1];
+    } else if (newSpeed !== this.options.speed[this.options.speed.length - 1]) {
+      newSpeed = this.options.speed[this.options.speed.length - 1]
+    }
+    this.speed = newSpeed;
+    this.debug.log('increaseSpeed--', newSpeed);
+  }
+
+  decreaseSpeed() {
+    const index = this.options.speed.indexOf(this.speed);
+    let newSpeed = this.speed;
+    if (index > 0) {
+      newSpeed = this.options.speed[index - 1];
+    } else if (newSpeed !== this.options.speed[0]) {
+      [newSpeed] = this.options.speed;
+    }
+    this.speed = newSpeed;
+    this.debug.log('decreaseSpeed--', newSpeed);
+  }
+
   /**
    * Set muted state
    * @param {Boolean} mute
@@ -879,7 +909,7 @@ class Plyr {
       return;
     }
 
-    ui.setPoster.call(this, input, false).catch(() => {});
+    ui.setPoster.call(this, input, false).catch(() => { });
   }
 
   /**

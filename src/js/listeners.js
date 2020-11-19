@@ -106,12 +106,14 @@ class Listeners {
 
         case 38:
           // Arrow up
-          player.increaseVolume(0.1);
+          // player.increaseVolume(0.1);
+          player.increaseSpeed();
           break;
 
         case 40:
           // Arrow down
-          player.decreaseVolume(0.1);
+          // player.decreaseVolume(0.1);
+          player.decreaseSpeed();
           break;
 
         case 77:
@@ -478,7 +480,7 @@ class Listeners {
     // Speed change
     on.call(player, player.media, 'ratechange', () => {
       // Update UI
-      controls.updateSetting.call(player, 'speed');
+      controls.updateSpeedSetting.call(player, 'speed');
 
       // Save to storage
       player.storage.set({ speed: player.speed });
@@ -630,6 +632,20 @@ class Listeners {
         event.preventDefault();
 
         controls.toggleMenu.call(player, event);
+      },
+      null,
+      false,
+    ); // Can't be passive as we're preventing default
+
+    this.bind(
+      elements.buttons.speed,
+      'click',
+      event => {
+        // Prevent the document click listener closing the menu
+        event.stopPropagation();
+        event.preventDefault();
+
+        controls.toggleSpeedMenu.call(player, event);
       },
       null,
       false,

@@ -62,6 +62,7 @@ const controls = {
         pip: getElement.call(this, this.config.selectors.buttons.pip),
         airplay: getElement.call(this, this.config.selectors.buttons.airplay),
         settings: getElement.call(this, this.config.selectors.buttons.settings),
+        speed: getElement.call(this, this.config.selectors.buttons.speed),
         captions: getElement.call(this, this.config.selectors.buttons.captions),
         fullscreen: getElement.call(this, this.config.selectors.buttons.fullscreen),
       };
@@ -531,7 +532,11 @@ const controls = {
             break;
         }
 
-        controls.showMenuPanel.call(this, 'home', is.keyboardEvent(event));
+        if (type === 'speed') {
+          controls.toggleSpeedMenu.call(this, false);
+        } else {
+          controls.showMenuPanel.call(this, 'home', is.keyboardEvent(event));
+        }
       },
       type,
       false,
@@ -855,6 +860,54 @@ const controls = {
     }
   },
 
+  updateSpeedSetting(setting, container, input) {
+    const pane = this.elements.speed.panels[setting];
+    let value = null;
+    let list = container;
+
+
+    value = !is.empty(input) ? input : this[setting];
+
+    // Get default
+    if (is.empty(value)) {
+      value = this.config[setting].default;
+    }
+
+    // Unsupported value
+    if (!is.empty(this.options[setting]) && !this.options[setting].includes(value)) {
+      this.debug.warn(`Unsupported value of '${value}' for ${setting}`);
+      return;
+    }
+
+    // Disabled value
+    if (!this.config[setting].options.includes(value)) {
+      this.debug.warn(`Disabled value of '${value}' for ${setting}`);
+      return;
+    }
+
+
+    // Get the list if we need to
+    if (!is.element(list)) {
+      list = pane && pane.querySelector('[role="menu"]');
+    }
+
+    // If there's no list it means it's not been rendered...
+    if (!is.element(list)) {
+      return;
+    }
+
+    // Update the label
+    const label = this.elements.speed.buttons[setting].querySelector(`.${this.config.classNames.menu.value}`);
+    label.innerHTML = controls.getLabel.call(this, setting, value);
+
+    // Find the radio option and check it
+    const target = list && list.querySelector(`[value="${value}"]`);
+
+    if (is.element(target)) {
+      target.checked = true;
+    }
+  },
+
   // Translate a value into a nice label
   getLabel(setting, value) {
     switch (setting) {
@@ -1046,12 +1099,12 @@ const controls = {
   // Set a list of available captions languages
   setSpeedMenu() {
     // Menu required
-    if (!is.element(this.elements.settings.panels.speed)) {
+    if (!is.element(this.elements.speed.panels.speed)) {
       return;
     }
 
     const type = 'speed';
-    const list = this.elements.settings.panels.speed.querySelector('[role="menu"]');
+    const list = this.elements.speed.panels.speed.querySelector('[role="menu"]');
 
     // Filter out invalid speeds
     this.options.speed = this.options.speed.filter(o => o >= this.minimumSpeed && o <= this.maximumSpeed);
@@ -1081,7 +1134,7 @@ const controls = {
       });
     });
 
-    controls.updateSetting.call(this, type, list);
+    controls.updateSpeedSetting.call(this, type, list);
   },
 
   // Check if we need to hide/show the settings menu
@@ -1141,6 +1194,10 @@ const controls = {
       }
     }
 
+    if (!show) {
+      controls.showMenuPanel.call(this, 'home', true);
+    }
+
     // Set button attributes
     button.setAttribute('aria-expanded', show);
 
@@ -1156,6 +1213,71 @@ const controls = {
     } else if (!show && !hidden) {
       // If closing, re-focus the button
       setFocus.call(this, button, is.keyboardEvent(input));
+    }
+
+    if (show) {
+      controls.showMenuPanel.call(this, 'quality', false);
+      controls.toggleSpeedMenu.call(this, false);
+      this.elements.buttons.speed.blur();
+    }
+  },
+
+  toggleSpeedMenu(input) {
+    const { popup } = this.elements.speed;
+    const button = this.elements.buttons.speed;
+
+    // Menu and button are required
+    if (!is.element(popup) || !is.element(button)) {
+      return;
+    }
+
+    // True toggle by default
+    const { hidden } = popup;
+    let show = hidden;
+
+    if (is.boolean(input)) {
+      show = input;
+    } else if (is.keyboardEvent(input) && input.which === 27) {
+      show = false;
+    } else if (is.event(input)) {
+      // If Plyr is in a shadowDOM, the event target is set to the component, instead of the
+      // Element in the shadowDOM. The path, if available, is complete.
+      const target = is.function(input.composedPath) ? input.composedPath()[0] : input.target;
+      const isMenuItem = popup.contains(target);
+
+      // If the click was inside the menu or if the click
+      // wasn't the button or menu item and we're trying to
+      // show the menu (a doc click shouldn't show the menu)
+      if (isMenuItem || (!isMenuItem && input.target !== button && show)) {
+        return;
+      }
+    }
+
+    if (!show) {
+      controls.showSpeedMenuPanel.call(this, 'home', true);
+    }
+
+    // Set button attributes
+    button.setAttribute('aria-expanded', show);
+
+    // Show the actual popup
+    toggleHidden(popup, !show);
+
+    // Add class hook
+    toggleClass(this.elements.container, this.config.classNames.menu.open, show);
+
+    // Focus the first item if key interaction
+    if (show && is.keyboardEvent(input)) {
+      controls.focusFirstMenuItem.call(this, null, true);
+    } else if (!show && !hidden) {
+      // If closing, re-focus the button
+      setFocus.call(this, button, is.keyboardEvent(input));
+    }
+
+    if (show) {
+      controls.showSpeedMenuPanel.call(this, 'speed', false);
+      controls.toggleMenu.call(this, false);
+      this.elements.buttons.settings.blur()
     }
   },
 
@@ -1237,6 +1359,60 @@ const controls = {
     controls.focusFirstMenuItem.call(this, target, tabFocus);
   },
 
+  showSpeedMenuPanel(type = '', tabFocus = false) {
+    const target = this.elements.container.querySelector(`#plyr-speed-${this.id}-${type}`);
+
+    // Nothing to show, bail
+    if (!is.element(target)) {
+      return;
+    }
+
+    // Hide all other panels
+    const container = target.parentNode;
+    const current = Array.from(container.children).find(node => !node.hidden);
+
+    // If we can do fancy animations, we'll animate the height/width
+    if (support.transitions && !support.reducedMotion) {
+      // Set the current width as a base
+      container.style.width = `${current.scrollWidth}px`;
+      container.style.height = `${current.scrollHeight}px`;
+
+      // Get potential sizes
+      const size = controls.getMenuSize.call(this, target);
+
+      // Restore auto height/width
+      const restore = event => {
+        // We're only bothered about height and width on the container
+        if (event.target !== container || !['width', 'height'].includes(event.propertyName)) {
+          return;
+        }
+
+        // Revert back to auto
+        container.style.width = '';
+        container.style.height = '';
+
+        // Only listen once
+        off.call(this, container, transitionEndEvent, restore);
+      };
+
+      // Listen for the transition finishing and restore auto height/width
+      on.call(this, container, transitionEndEvent, restore);
+
+      // Set dimensions to target
+      container.style.width = `${size.width}px`;
+      container.style.height = `${size.height}px`;
+    }
+
+    // Set attributes on current tab
+    toggleHidden(current, true);
+
+    // Set attributes on target
+    toggleHidden(target, false);
+
+    // Focus the first item
+    controls.focusFirstMenuItem.call(this, target, tabFocus);
+  },
+
   // Set the download URL
   setDownloadUrl() {
     const button = this.elements.buttons.download;
@@ -1261,6 +1437,7 @@ const controls = {
       setQualityMenu,
       setSpeedMenu,
       showMenuPanel,
+      showSpeedMenuPanel,
     } = controls;
     this.elements.controls = null;
 
@@ -1277,7 +1454,7 @@ const controls = {
     const defaultAttributes = { class: 'plyr__controls__item' };
 
     // Loop through controls in order
-    dedupe(is.array(this.config.controls) ? this.config.controls: []).forEach(control => {
+    dedupe(is.array(this.config.controls) ? this.config.controls : []).forEach(control => {
       // Restart button
       if (control === 'restart') {
         container.appendChild(createButton.call(this, 'restart', defaultAttributes));
@@ -1440,6 +1617,9 @@ const controls = {
 
         // Build the menu items
         this.config.settings.forEach(type => {
+          if (type === 'speed') {
+            return;
+          }
           // TODO: bundle this with the createMenuItem helper and bindings
           const menuItem = createElement(
             'button',
@@ -1555,6 +1735,159 @@ const controls = {
 
         this.elements.settings.popup = popup;
         this.elements.settings.menu = wrapper;
+      }
+
+      if (control === 'speed' && !is.empty(this.config.speed)) {
+        const wrapper = createElement(
+          'div',
+          extend({}, defaultAttributes, {
+            class: `${defaultAttributes.class} plyr__menu`.trim()
+          }),
+        );
+
+        wrapper.appendChild(
+          createButton.call(this, 'speed', {
+            'aria-haspopup': true,
+            'aria-controls': `plyr-speed-${data.id}`,
+            'aria-expanded': false,
+          }),
+        );
+
+        const popup = createElement('div', {
+          class: 'plyr__menu__container',
+          id: `plyr-speed-${data.id}`,
+          hidden: '',
+        });
+
+        const inner = createElement('div');
+
+        const home = createElement('div', {
+          id: `plyr-speed-${data.id}-home`,
+        });
+
+        // Create the menu
+        const menu = createElement('div', {
+          role: 'menu',
+        });
+
+        home.appendChild(menu);
+        inner.appendChild(home);
+        this.elements.speed.panels.home = home;
+
+        // Build the menu items
+        const type = 'speed';
+        const menuItem = createElement(
+          'button',
+          extend(getAttributesFromSelector(this.config.selectors.buttons.speed), {
+            type: 'button',
+            class: `${this.config.classNames.control} ${this.config.classNames.control}--forward`,
+            role: 'menuitem',
+            'aria-haspopup': true,
+          }),
+        );
+
+        // Bind menu shortcuts for keyboard users
+        bindMenuItemShortcuts.call(this, menuItem, type);
+
+        // Show menu on click
+        on.call(this, menuItem, 'click', () => {
+          showSpeedMenuPanel.call(this, type, false);
+        });
+
+        const flex = createElement('span', null, i18n.get(type, this.config));
+
+        const value = createElement('span', {
+          class: this.config.classNames.menu.value,
+        });
+
+        // Speed contains HTML entities
+        value.innerHTML = data[type];
+
+        flex.appendChild(value);
+        menuItem.appendChild(flex);
+        menu.appendChild(menuItem);
+
+        // Build the panes
+        const pane = createElement('div', {
+          id: `plyr-speed-${data.id}-${type}`,
+          hidden: '',
+        });
+
+        // Back button
+        const backButton = createElement('button', {
+          type: 'button',
+          class: `${this.config.classNames.control} ${this.config.classNames.control}--back`,
+        });
+
+        // Visible label
+        backButton.appendChild(
+          createElement(
+            'span',
+            {
+              'aria-hidden': true,
+            },
+            i18n.get(type, this.config),
+          ),
+        );
+
+        // Screen reader label
+        backButton.appendChild(
+          createElement(
+            'span',
+            {
+              class: this.config.classNames.hidden,
+            },
+            i18n.get('menuBack', this.config),
+          ),
+        );
+
+        // Go back via keyboard
+        on.call(
+          this,
+          pane,
+          'keydown',
+          event => {
+            // We only care about <-
+            if (event.which !== 37) {
+              return;
+            }
+
+            // Prevent seek
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Show the respective menu
+            showSpeedMenuPanel.call(this, 'home', true);
+          },
+          false,
+        );
+
+        // Go back via button click
+        on.call(this, backButton, 'click', () => {
+          showSpeedMenuPanel.call(this, 'home', false);
+        });
+
+        // Add to pane
+        pane.appendChild(backButton);
+
+        // Menu
+        pane.appendChild(
+          createElement('div', {
+            role: 'menu',
+          }),
+        );
+
+        inner.appendChild(pane);
+
+        this.elements.speed.buttons[type] = menuItem;
+        this.elements.speed.panels[type] = pane;
+
+        popup.appendChild(inner);
+        wrapper.appendChild(popup);
+        container.appendChild(wrapper);
+
+        this.elements.speed.popup = popup;
+        this.elements.speed.menu = wrapper;
       }
 
       // Picture in picture button
