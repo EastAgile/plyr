@@ -123,14 +123,16 @@ const vimeo = {
     }
 
     // Get poster image
-    fetch(format(player.config.urls.vimeo.api, src)).then(response => {
-      if (is.empty(response) || !response.thumbnail_url) {
-        return;
-      }
+    if (!player.config.vimeo.disableFetchThumbnail) {
+      fetch(format(player.config.urls.vimeo.api, src)).then(response => {
+        if (is.empty(response) || !response.thumbnail_url) {
+          return;
+        }
 
-      // Set and show poster
-      ui.setPoster.call(player, response.thumbnail_url).catch(() => { });
-    });
+        // Set and show poster
+        ui.setPoster.call(player, response.thumbnail_url).catch(() => { });
+      });
+    }
 
     // Setup instance
     // https://github.com/vimeo/player.js

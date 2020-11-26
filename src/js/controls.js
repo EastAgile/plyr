@@ -1937,7 +1937,7 @@ const controls = {
       const button = createButton.call(this, key, defaultAttributes);
       button.addEventListener('click', onClick);
       container.appendChild(button);
-      callback(button);
+      callback(button, this);
     });
 
     // Set available quality levels
