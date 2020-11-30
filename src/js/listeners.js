@@ -747,9 +747,11 @@ class Listeners {
           seekTo = seek.value;
         }
 
+        const newTime = (seekTo / seek.max) * player.duration;
         seek.removeAttribute('seek-value');
-
-        player.currentTime = (seekTo / seek.max) * player.duration;
+        setTimeout(() => {
+          player.currentTime = newTime;
+        }, 200);
       },
       'seek',
     );

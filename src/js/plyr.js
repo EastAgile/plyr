@@ -371,13 +371,64 @@ class Plyr {
     }
 
     // Return the promise (for HTML5)
-    return this.media.play();
+    if (this.googleCastSession) {
+      if (!this.googleCastPlayer.isMediaLoaded) {
+        const contentType = 'video/mp4';
+        // const url = this.media.dataset.src;
+        if (this.config.googleCast && this.config.googleCast.metadata) {
+          let urlPromise;
+          let metadataPromise;
+
+          if (is.function(this.config.googleCast.streamUrl)) {
+            urlPromise = this.config.googleCast.streamUrl();
+          } else {
+            urlPromise = Promise.resolve(this.media.dataset.src);
+          }
+          if (is.function(this.config.googleCast.metadata)) {
+            metadataPromise = this.config.googleCast.metadata();
+          } else {
+            metadataPromise = Promise.resolve(this.config.googleCast.metadata)
+          }
+          return Promise.all([urlPromise, metadataPromise]).then(([url, metadata]) => {
+            const mediaInfo = new window.chrome.cast.media.MediaInfo(url, contentType);
+            mediaInfo.metadata = new window.chrome.cast.media.MediaMetadata();
+            Object.entries(metadata).forEach(([key, value]) => {
+              if (key === 'images') {
+                mediaInfo.metadata.images = value.map(imageUrl => new window.chrome.cast.Image(imageUrl));
+              } else {
+                mediaInfo.metadata[key] = value;
+              }
+            });
+            console.log('METADATA---', mediaInfo.metadata);
+            const request = new window.chrome.cast.media.LoadRequest(mediaInfo);
+            this.googleCastSession.loadMedia(request).then(
+              () => {
+                console.log('Load succeed');
+                if (this.media.currentTime > 0) {
+                  this.currentTime = this.media.currentTime;
+                }
+              },
+              (errorCode) => { console.log(`Error code: ${errorCode}`); });
+          })
+        }
+
+      } else {
+        return this.googleCastPlayerController.playOrPause()
+      }
+    } else {
+      return this.media.play();
+    }
+
+    return null;
   }
 
   /**
    * Pause the media
    */
   pause() {
+    if (this.googleCastMediaLoaded) {
+      this.googleCastPlayerController.playOrPause();
+    }
     if (!this.playing || !is.function(this.media.pause)) {
       return null;
     }
@@ -389,6 +440,9 @@ class Plyr {
    * Get playing state
    */
   get playing() {
+    if (this.googleCastMediaLoaded) {
+      return !this.googleCastPlayer.isPaused;
+    }
     return Boolean(this.ready && !this.paused && !this.ended);
   }
 
@@ -396,6 +450,9 @@ class Plyr {
    * Get paused state
    */
   get paused() {
+    if (this.googleCastMediaLoaded) {
+      return this.googleCastPlayer.isPaused;
+    }
     return Boolean(this.media.paused);
   }
 
@@ -475,9 +532,14 @@ class Plyr {
 
     // Validate input
     const inputIsValid = is.number(input) && input > 0;
-
     // Set
-    this.media.currentTime = inputIsValid ? Math.min(input, this.duration) : 0;
+    const newTime = inputIsValid ? Math.min(input, this.duration) : 0;
+    if (this.googleCastMediaLoaded) {
+      this.googleCastPlayer.currentTime = newTime;
+      this.googleCastPlayerController.seek();
+    } else {
+      this.media.currentTime = newTime;
+    }
 
     // Logging
     this.debug.log(`Seeking to ${this.currentTime} seconds`);
@@ -487,6 +549,9 @@ class Plyr {
    * Get current time
    */
   get currentTime() {
+    if (this.googleCastMediaLoaded) {
+      return Number(this.googleCastPlayer.currentTime);
+    }
     return Number(this.media.currentTime);
   }
 
@@ -522,6 +587,9 @@ class Plyr {
    * Get the duration of the current media
    */
   get duration() {
+    if (this.googleCastMediaLoaded) {
+      return Number(this.googleCastPlayer.duration);
+    }
     // Faux duration set via config
     const fauxDuration = parseFloat(this.config.duration);
     // Media duration can be NaN or Infinity before the media has loaded
@@ -569,6 +637,11 @@ class Plyr {
 
     // Set the player volume
     this.media.volume = volume;
+    if (this.googleCastMediaLoaded) {
+      this.googleCastPlayer.volumeLevel = volume;
+      this.googleCastPlayerController.setVolumeLevel();
+    }
+
 
     // If muted, and we're increasing volume manually, reset muted state
     if (!is.empty(value) && this.muted && volume > 0) {
@@ -646,12 +719,19 @@ class Plyr {
 
     // Set mute on the player
     this.media.muted = toggle;
+    if (this.googleCastMediaLoaded) {
+      this.googleCastPlayer.volumeLevel = toggle ? 0 : this.volume;
+      this.googleCastPlayerController.setVolumeLevel();
+    }
   }
 
   /**
    * Get current muted state
    */
   get muted() {
+    // if (this.googleCastMediaLoaded) {
+    //   return this.googleCastPlayer.isMuted;
+    // }
     return Boolean(this.media.muted);
   }
 
@@ -1067,6 +1147,87 @@ class Plyr {
     if (support.airplay) {
       this.media.webkitShowPlaybackTargetPicker();
     }
+  }
+
+  /**
+   * Trigger the Google Cast dialog
+   * TODO: update player with state, support, enabled
+   */
+  initGoogleCast() {
+    // Show dialog if supported
+    if (!this.googleCastSupported) { return }
+
+    let receiverApplicationId = window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID;
+    if (this.config.googleCast && this.config.googleCast.receiverApplicationId) {
+      receiverApplicationId = this.config.googleCast.receiverApplicationId;
+    }
+
+
+    window.cast.framework.CastContext.getInstance().setOptions({
+      receiverApplicationId,
+      autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+    });
+    this.googleCastPlayer = new window.cast.framework.RemotePlayer();
+    this.googleCastPlayerController = new window.cast.framework.RemotePlayerController(this.googleCastPlayer);
+    this.bindGoogleCastEvents.call(this);
+  }
+
+  bindGoogleCastEvents() {
+    this.googleCastPlayerController.addEventListener(window.cast.framework.RemotePlayerEventType.IS_CONNECTED_CHANGED, (e) => {
+      console.log('RemotePlayerEventType.IS_CONNECTED_CHANGED--', e.value);
+      this.googleCastConnected = e.value;
+      if (e.value) {
+        this.media.pause();
+        if (!this.googleCastMediaLoaded) {
+          this.timers.googleCastAutoPlay = setTimeout(() => {
+            if (!this.googleCastMediaLoaded) {
+              this.play.call(this);
+            }
+          }, 1000);
+        }
+      } else if (this.googleCastPlayer.savedPlayerState) {
+        console.log('cast disconnected---', this.googleCastPlayer.savedPlayerState.currentTime);
+        this.media.currentTime = this.googleCastPlayer.savedPlayerState.currentTime;
+        this.play();
+      }
+    });
+
+    this.googleCastPlayerController.addEventListener(window.cast.framework.RemotePlayerEventType.IS_MEDIA_LOADED, (e) => {
+      console.log('RemotePlayerEventType.IS_MEDIA_LOADED--', e.value);
+      if (e.value && this.timers.googleCastAutoPlay) {
+        clearTimeout(this.timers.googleCastAutoPlay);
+      }
+    });
+
+    this.googleCastPlayerController.addEventListener(window.cast.framework.RemotePlayerEventType.IS_PAUSED_CHANGED, (event) => {
+      console.log('IS_PAUSED_CHANGED', event);
+      triggerEvent.call(this, this.media, 'playing');
+    });
+
+    this.googleCastPlayerController.addEventListener(window.cast.framework.RemotePlayerEventType.CURRENT_TIME_CHANGED, (event) => {
+      console.log('CURRENT_TIME_CHANGED', event);
+      triggerEvent.call(this, this.media, 'timeupdate');
+      triggerEvent.call(this, this.media, 'durationchange');
+    });
+  }
+
+  get googleCastSupported() {
+    return is.object(window.cast) && (this.isHTML5 || this.isVimeo)
+  }
+
+  get googleCastSession() {
+    if (!this.googleCastSupported) {
+      return null;
+    }
+    const session = window.cast.framework.CastContext.getInstance().getCurrentSession();
+    if (session && !this.googleCastPlayer) {
+      this.initGoogleCast.call(this);
+    }
+    return session;
+  }
+
+  get googleCastMediaLoaded() {
+    return this.config.controls.includes('googleCast') && this.googleCastSession && this.googleCastPlayer && this.googleCastPlayer.isMediaLoaded;
   }
 
   /**

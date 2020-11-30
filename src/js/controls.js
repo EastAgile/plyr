@@ -65,6 +65,7 @@ const controls = {
         speed: getElement.call(this, this.config.selectors.buttons.speed),
         captions: getElement.call(this, this.config.selectors.buttons.captions),
         fullscreen: getElement.call(this, this.config.selectors.buttons.fullscreen),
+        googleCast: getElement.call(this, this.config.selectors.buttons.googleCast),
       };
 
       // Progress
@@ -1900,6 +1901,18 @@ const controls = {
         container.appendChild(createButton.call(this, 'airplay', defaultAttributes));
       }
 
+      // Google Cast button
+      if (control === 'googleCast' && this.googleCastSupported) {
+        const button = createElement.call(this, 'google-cast-launcher', {
+          class: 'google-cast-button'
+        });
+        container.appendChild(button);
+        this.initGoogleCast.call(this);
+        if (this.config.googleCast && this.config.googleCast.buttonCallback) {
+          this.config.googleCast.buttonCallback(button, this);
+        }
+      }
+
       // Download button
       if (control === 'download') {
         const attributes = extend({}, defaultAttributes, {
@@ -1948,6 +1961,10 @@ const controls = {
     }
 
     setSpeedMenu.call(this);
+
+    if (this.config.afterBuildControlCallback) {
+      this.config.afterBuildControlCallback(this);
+    }
 
     return container;
   },
