@@ -460,7 +460,7 @@ class Plyr {
    * Get stopped state
    */
   get stopped() {
-    return Boolean(this.paused && this.currentTime === 0);
+    return Boolean(this.paused && this.currentTime < 0.05);
   }
 
   /**
@@ -679,7 +679,7 @@ class Plyr {
     if (index < this.options.speed.length - 1) {
       newSpeed = this.options.speed[index + 1];
     } else if (newSpeed !== this.options.speed[this.options.speed.length - 1]) {
-      newSpeed = this.options.speed[this.options.speed.length - 1]
+      newSpeed = this.options.speed[this.options.speed.length - 1];
     }
     this.speed = newSpeed;
     this.debug.log('increaseSpeed--', newSpeed);
@@ -1145,6 +1145,34 @@ class Plyr {
   airplay() {
     // Show dialog if supported
     if (support.airplay) {
+      if (this.stopped) {
+        this.play();
+        this.showAirPlayPicker(true);
+        return;
+      }
+
+      this.showAirPlayPicker(false);
+    }
+  }
+
+  showAirPlayPicker(needPause = false, times = 1) {
+    console.log('showAirPlayPicker times buffered---', times, this.buffered);
+    if (this.buffered < 0.002 && !this.media.webkitCurrentPlaybackTargetIsWireless && times < 100) {
+      if (this.timers.showAirPlayPicker) {
+        clearTimeout(this.timers.showAirPlayPicker);
+        this.timers.showAirPlayPicker = null;
+      }
+
+      this.timers.showAirPlayPicker = setTimeout(() => this.showAirPlayPicker(needPause, times + 1), 200);
+      return;
+    }
+
+    if (!this.media.webkitCurrentPlaybackTargetIsWireless && needPause) {
+      this.pause();
+      setTimeout(() => {
+        this.media.webkitShowPlaybackTargetPicker();
+      }, 500);
+    } else {
       this.media.webkitShowPlaybackTargetPicker();
     }
   }
@@ -1173,46 +1201,58 @@ class Plyr {
   }
 
   bindGoogleCastEvents() {
-    this.googleCastPlayerController.addEventListener(window.cast.framework.RemotePlayerEventType.IS_CONNECTED_CHANGED, (e) => {
-      console.log('RemotePlayerEventType.IS_CONNECTED_CHANGED--', e.value);
-      this.googleCastConnected = e.value;
-      if (e.value) {
-        this.media.pause();
-        if (!this.googleCastMediaLoaded) {
-          this.timers.googleCastAutoPlay = setTimeout(() => {
-            if (!this.googleCastMediaLoaded) {
-              this.play.call(this);
-            }
-          }, 1000);
+    this.googleCastPlayerController.addEventListener(
+      window.cast.framework.RemotePlayerEventType.IS_CONNECTED_CHANGED,
+      (e) => {
+        console.log('RemotePlayerEventType.IS_CONNECTED_CHANGED--', e.value);
+        this.googleCastConnected = e.value;
+        if (e.value) {
+          this.media.pause();
+          if (!this.googleCastMediaLoaded) {
+            this.timers.googleCastAutoPlay = setTimeout(() => {
+              if (!this.googleCastMediaLoaded) {
+                this.play.call(this);
+              }
+            }, 1000);
+          }
+        } else if (this.googleCastPlayer.savedPlayerState) {
+          console.log('cast disconnected---', this.googleCastPlayer.savedPlayerState.currentTime);
+          this.media.currentTime = this.googleCastPlayer.savedPlayerState.currentTime;
+          this.play();
         }
-      } else if (this.googleCastPlayer.savedPlayerState) {
-        console.log('cast disconnected---', this.googleCastPlayer.savedPlayerState.currentTime);
-        this.media.currentTime = this.googleCastPlayer.savedPlayerState.currentTime;
-        this.play();
-      }
-    });
+      },
+    );
 
-    this.googleCastPlayerController.addEventListener(window.cast.framework.RemotePlayerEventType.IS_MEDIA_LOADED, (e) => {
-      console.log('RemotePlayerEventType.IS_MEDIA_LOADED--', e.value);
-      if (e.value && this.timers.googleCastAutoPlay) {
-        clearTimeout(this.timers.googleCastAutoPlay);
-      }
-    });
+    this.googleCastPlayerController.addEventListener(
+      window.cast.framework.RemotePlayerEventType.IS_MEDIA_LOADED,
+      (e) => {
+        console.log('RemotePlayerEventType.IS_MEDIA_LOADED--', e.value);
+        if (e.value && this.timers.googleCastAutoPlay) {
+          clearTimeout(this.timers.googleCastAutoPlay);
+        }
+      },
+    );
 
-    this.googleCastPlayerController.addEventListener(window.cast.framework.RemotePlayerEventType.IS_PAUSED_CHANGED, (event) => {
-      console.log('IS_PAUSED_CHANGED', event);
-      triggerEvent.call(this, this.media, 'playing');
-    });
+    this.googleCastPlayerController.addEventListener(
+      window.cast.framework.RemotePlayerEventType.IS_PAUSED_CHANGED,
+      (event) => {
+        console.log('IS_PAUSED_CHANGED', event);
+        triggerEvent.call(this, this.media, 'playing');
+      },
+    );
 
-    this.googleCastPlayerController.addEventListener(window.cast.framework.RemotePlayerEventType.CURRENT_TIME_CHANGED, (event) => {
-      console.log('CURRENT_TIME_CHANGED', event);
-      triggerEvent.call(this, this.media, 'timeupdate');
-      triggerEvent.call(this, this.media, 'durationchange');
-    });
+    this.googleCastPlayerController.addEventListener(
+      window.cast.framework.RemotePlayerEventType.CURRENT_TIME_CHANGED,
+      (event) => {
+        console.log('CURRENT_TIME_CHANGED', event);
+        triggerEvent.call(this, this.media, 'timeupdate');
+        triggerEvent.call(this, this.media, 'durationchange');
+      },
+    );
   }
 
   get googleCastSupported() {
-    return is.object(window.cast) && (this.isHTML5 || this.isVimeo)
+    return is.object(window.cast) && (this.isHTML5 || this.isVimeo);
   }
 
   get googleCastSession() {
@@ -1227,7 +1267,12 @@ class Plyr {
   }
 
   get googleCastMediaLoaded() {
-    return this.config.controls.includes('googleCast') && this.googleCastSession && this.googleCastPlayer && this.googleCastPlayer.isMediaLoaded;
+    return (
+      this.config.controls.includes('googleCast') &&
+      this.googleCastSession &&
+      this.googleCastPlayer &&
+      this.googleCastPlayer.isMediaLoaded
+    );
   }
 
   /**

@@ -73,8 +73,9 @@ const support = {
       return false;
     }
 
-    const [mediaType] = input.split('/');
-    let type = input;
+    const calculatedInput = input === 'application/vnd.apple.mpegURL' ? 'video/mp4' : input;
+    const [mediaType] = calculatedInput.split('/');
+    let type = calculatedInput;
 
     // Verify we're using HTML5 and there's no media type mismatch
     if (!this.isHTML5 || mediaType !== this.type) {
@@ -83,7 +84,7 @@ const support = {
 
     // Add codec if required
     if (Object.keys(defaultCodecs).includes(type)) {
-      type += `; codecs="${defaultCodecs[input]}"`;
+      type += `; codecs="${defaultCodecs[calculatedInput]}"`;
     }
 
     try {
