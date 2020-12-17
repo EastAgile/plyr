@@ -372,7 +372,7 @@ class Plyr {
 
     // Return the promise (for HTML5)
     if (this.googleCastSession) {
-      if (!this.googleCastPlayer.isMediaLoaded) {
+      if (!this.googleCastPlayer.isMediaLoaded || !this.googleCastSameSesssion) {
         const contentType = 'video/mp4';
         // const url = this.media.dataset.src;
         if (this.config.googleCast && this.config.googleCast.metadata) {
@@ -392,6 +392,7 @@ class Plyr {
           return Promise.all([urlPromise, metadataPromise]).then(([url, metadata]) => {
             const mediaInfo = new window.chrome.cast.media.MediaInfo(url, contentType);
             mediaInfo.metadata = new window.chrome.cast.media.MediaMetadata();
+            mediaInfo.metadata.identifier = this.config.googleCast.identifier;
             Object.entries(metadata).forEach(([key, value]) => {
               if (key === 'images') {
                 mediaInfo.metadata.images = value.map(imageUrl => new window.chrome.cast.Image(imageUrl));
@@ -1224,7 +1225,7 @@ class Plyr {
     );
 
     this.googleCastPlayerController.addEventListener(
-      window.cast.framework.RemotePlayerEventType.IS_MEDIA_LOADED,
+      window.cast.framework.RemotePlayerEventType.IS_MEDIA_LOADED_CHANGED,
       (e) => {
         console.log('RemotePlayerEventType.IS_MEDIA_LOADED--', e.value);
         if (e.value && this.timers.googleCastAutoPlay) {
@@ -1234,9 +1235,22 @@ class Plyr {
     );
 
     this.googleCastPlayerController.addEventListener(
+      window.cast.framework.RemotePlayerEventType.MEDIA_INFO_CHANGED,
+      (e) => {
+        console.log('RemotePlayerEventType.MEDIA_INFO_CHANGED--', e.value);
+        if (e.value) {
+          if (this.config.googleCast && this.config.googleCast.identifier) {
+            this.googleCastSameSesssion = this.config.googleCast.identifier === this.googleCastPlayer.mediaInfo.metadata.identifier;
+          }
+        }
+      },
+    );
+
+    this.googleCastPlayerController.addEventListener(
       window.cast.framework.RemotePlayerEventType.IS_PAUSED_CHANGED,
       (event) => {
         console.log('IS_PAUSED_CHANGED', event);
+        if (!this.googleCastSameSesssion) return;
         triggerEvent.call(this, this.media, 'playing');
       },
     );
@@ -1245,6 +1259,7 @@ class Plyr {
       window.cast.framework.RemotePlayerEventType.CURRENT_TIME_CHANGED,
       (event) => {
         console.log('CURRENT_TIME_CHANGED', event);
+        if (!this.googleCastSameSesssion) return;
         triggerEvent.call(this, this.media, 'timeupdate');
         triggerEvent.call(this, this.media, 'durationchange');
       },
@@ -1256,7 +1271,7 @@ class Plyr {
   }
 
   get googleCastSession() {
-    if (!this.googleCastSupported) {
+    if (!this.googleCastSupported || !this.config.controls.includes('googleCast')) {
       return null;
     }
     const session = window.cast.framework.CastContext.getInstance().getCurrentSession();
@@ -1271,7 +1286,8 @@ class Plyr {
       this.config.controls.includes('googleCast') &&
       this.googleCastSession &&
       this.googleCastPlayer &&
-      this.googleCastPlayer.isMediaLoaded
+      this.googleCastPlayer.isMediaLoaded &&
+      this.googleCastSameSesssion
     );
   }
 
