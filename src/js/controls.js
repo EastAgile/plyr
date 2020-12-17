@@ -901,6 +901,8 @@ const controls = {
     const label = this.elements.speed.buttons[setting].querySelector(`.${this.config.classNames.menu.value}`);
     label.innerHTML = controls.getLabel.call(this, setting, value);
 
+    this.elements.buttons.speed.innerHTML = `${value}x`;
+
     // Find the radio option and check it
     const target = list && list.querySelector(`[value="${value}"]`);
 
@@ -1219,7 +1221,9 @@ const controls = {
     if (show) {
       controls.showMenuPanel.call(this, 'quality', false);
       controls.toggleSpeedMenu.call(this, false);
-      this.elements.buttons.speed.blur();
+      if (this.elements.buttons.speed) {
+        this.elements.buttons.speed.blur();
+      }
     }
   },
 
@@ -1278,7 +1282,9 @@ const controls = {
     if (show) {
       controls.showSpeedMenuPanel.call(this, 'speed', false);
       controls.toggleMenu.call(this, false);
-      this.elements.buttons.settings.blur()
+      if (this.elements.buttons.settings) {
+        this.elements.buttons.settings.blur()
+      }
     }
   },
 
@@ -1746,13 +1752,15 @@ const controls = {
           }),
         );
 
-        wrapper.appendChild(
-          createButton.call(this, 'speed', {
-            'aria-haspopup': true,
-            'aria-controls': `plyr-speed-${data.id}`,
-            'aria-expanded': false,
-          }),
-        );
+        const button = createButton.call(this, 'speed', {
+          'aria-haspopup': true,
+          'aria-controls': `plyr-speed-${data.id}`,
+          'aria-expanded': false,
+          class: 'plyr__controls__item plyr__controls__speed',
+        });
+        button.innerHTML = '1x';
+
+        wrapper.appendChild(button);
 
         const popup = createElement('div', {
           class: 'plyr__menu__container',
