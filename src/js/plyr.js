@@ -768,7 +768,7 @@ class Plyr {
       speed = input;
     }
 
-    if (!is.number(speed)) {
+    if (!is.number(speed) && !this.config.speed.ignoreLocalStorage) {
       speed = this.storage.get('speed');
     }
 

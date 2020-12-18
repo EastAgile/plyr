@@ -87,6 +87,7 @@ const defaults = {
     selected: 1,
     // The options to display in the UI, if available for the source media (e.g. Vimeo and YouTube only support 0.5x-4x)
     options: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 4],
+    ignoreLocalStorage: false,
   },
 
   // Keyboard shortcut settings
