@@ -328,11 +328,9 @@ const vimeo = {
       captions.updateCues.call(player, strippedCues);
     });
     player.embed.ready().then(() => {
-      console.log('ready---------');
       player.embed.qualities = [];
       player.embed.getQualities()
         .then((qualities) => {
-          console.log('qualities------------', qualities);
           player.embed.qualities = qualities.map(q => {
             return q.id === 'auto' ? 0 : parseInt(q.id);
           });
@@ -341,10 +339,10 @@ const vimeo = {
 
           ui.build.call(player);
         })
-        .catch(e => console.log('-----------error=======', e));
+        .catch(e => player.debug.warn('=======error=======', e));
 
     }).catch((error) => {
-      console.log('Not ready', error);
+      player.debug.warn('Not ready', error);
     })
     player.embed.on('loaded', () => {
       // Assure state and events are updated on autoplay
@@ -437,7 +435,7 @@ const vimeo = {
           return;
         }
         player.embed.quality = input;
-        setTimeout(() =>{
+        setTimeout(() => {
           const quality = input > 0 ? `${input}p` : 'auto';
           player.embed.setQuality(quality);
           console.log('set quality---', quality);
