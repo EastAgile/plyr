@@ -174,6 +174,10 @@ class Listeners {
 
       // Store last code for next cycle
       this.lastKey = code;
+
+      if (is.function(player.config.keyPressedCallback)) {
+        player.config.keyPressedCallback(code);
+      }
     } else {
       this.lastKey = null;
     }

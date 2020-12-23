@@ -1191,7 +1191,7 @@ class Plyr {
 
     window.cast.framework.CastContext.getInstance().setOptions({
       receiverApplicationId,
-      autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+      autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
     });
     this.googleCastPlayer = new window.cast.framework.RemotePlayer();
     this.googleCastPlayerController = new window.cast.framework.RemotePlayerController(this.googleCastPlayer);
@@ -1233,7 +1233,8 @@ class Plyr {
       (e) => {
         if (e.value) {
           if (this.config.googleCast && this.config.googleCast.identifier) {
-            this.googleCastSameSesssion = this.config.googleCast.identifier === this.googleCastPlayer.mediaInfo.metadata.identifier;
+            this.googleCastSameSesssion =
+              this.config.googleCast.identifier === this.googleCastPlayer.mediaInfo.metadata.identifier;
           }
         }
       },
@@ -1258,7 +1259,7 @@ class Plyr {
   }
 
   get googleCastSupported() {
-    return is.object(window.cast) && (this.isHTML5 || this.isVimeo);
+    return is.object(window.cast) && is.object(window.chrome.cast) && (this.isHTML5 || this.isVimeo);
   }
 
   get googleCastSession() {
@@ -1297,8 +1298,20 @@ class Plyr {
       const hiding = toggleClass(this.elements.container, this.config.classNames.hideControls, force);
 
       // Close menu
-      if (hiding && is.array(this.config.controls) && this.config.controls.includes('settings') && !is.empty(this.config.settings)) {
+      if (
+        hiding &&
+        is.array(this.config.controls) &&
+        this.config.controls.includes('settings') &&
+        !is.empty(this.config.settings)
+      ) {
         controls.toggleMenu.call(this, false);
+        controls.toggleSpeedMenu.call(this, false);
+        if (this.elements.buttons.settings) {
+          this.elements.buttons.settings.blur();
+        }
+        if (this.elements.buttons.speed) {
+          this.elements.buttons.speed.blur();
+        }
       }
 
       // Trigger event on change
