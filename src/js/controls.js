@@ -533,7 +533,7 @@ const controls = {
             break;
         }
 
-        if (type === 'speed') {
+        if (type === 'speed' && controls.separateSpeedMenu.call(this)) {
           controls.toggleSpeedMenu.call(this, false);
         } else {
           controls.showMenuPanel.call(this, 'home', is.keyboardEvent(event));
@@ -861,8 +861,12 @@ const controls = {
     }
   },
 
+  separateSpeedMenu() {
+    return this.config.speed && this.config.speed.separateSpeedMenu;
+  },
+
   updateSpeedSetting(setting, container, input) {
-    const pane = this.elements.speed.panels[setting];
+    const pane = controls.separateSpeedMenu.call(this) ? this.elements.speed.panels[setting] : this.elements.speed.panels[setting];
     let value = null;
     let list = container;
 
@@ -1101,13 +1105,15 @@ const controls = {
 
   // Set a list of available captions languages
   setSpeedMenu() {
+    const separateSpeedMenu = controls.separateSpeedMenu.call(this);
+    const menuElement = separateSpeedMenu ? this.elements.speed : this.elements.settings;
     // Menu required
-    if (!is.element(this.elements.speed.panels.speed)) {
+    if (!is.element(menuElement.panels.speed)) {
       return;
     }
 
     const type = 'speed';
-    const list = this.elements.speed.panels.speed.querySelector('[role="menu"]');
+    const list = menuElement.panels.speed.querySelector('[role="menu"]');
 
     // Filter out invalid speeds
     this.options.speed = this.options.speed.filter(o => o >= this.minimumSpeed && o <= this.maximumSpeed);
@@ -1137,7 +1143,8 @@ const controls = {
       });
     });
 
-    controls.updateSpeedSetting.call(this, type, list);
+    const updateFunction = separateSpeedMenu ? controls.updateSpeedSetting : controls.updateSetting;
+    updateFunction.call(this, type, list);
   },
 
   // Check if we need to hide/show the settings menu
@@ -1198,7 +1205,7 @@ const controls = {
     }
 
     if (!show) {
-      controls.showMenuPanel.call(this, 'home', true);
+      controls.showMenuPanel.call(this, 'home', false);
     }
 
     // Set button attributes
@@ -1219,10 +1226,14 @@ const controls = {
     }
 
     if (show) {
-      controls.showMenuPanel.call(this, 'quality', false);
-      controls.toggleSpeedMenu.call(this, false);
-      if (this.elements.buttons.speed) {
-        this.elements.buttons.speed.blur();
+      if (controls.separateSpeedMenu.call(this)) {
+        controls.showMenuPanel.call(this, 'quality', false);
+        controls.toggleSpeedMenu.call(this, false);
+        if (this.elements.buttons.speed) {
+          this.elements.buttons.speed.blur();
+        }
+      } else {
+        controls.showMenuPanel.call(this, 'home', false);
       }
     }
   },
@@ -1280,7 +1291,9 @@ const controls = {
     }
 
     if (show) {
-      controls.showSpeedMenuPanel.call(this, 'speed', false);
+      if (controls.separateSpeedMenu.call(this)) {
+        controls.showSpeedMenuPanel.call(this, 'speed', false);
+      }
       controls.toggleMenu.call(this, false);
       if (this.elements.buttons.settings) {
         this.elements.buttons.settings.blur()
@@ -1624,7 +1637,7 @@ const controls = {
 
         // Build the menu items
         this.config.settings.forEach(type => {
-          if (type === 'speed') {
+          if (type === 'speed' && controls.separateSpeedMenu.call(this)) {
             return;
           }
           // TODO: bundle this with the createMenuItem helper and bindings
@@ -1744,7 +1757,7 @@ const controls = {
         this.elements.settings.menu = wrapper;
       }
 
-      if (control === 'speed' && !is.empty(this.config.speed)) {
+      if (control === 'speed' && controls.separateSpeedMenu.call(this)) {
         const wrapper = createElement(
           'div',
           extend({}, defaultAttributes, {

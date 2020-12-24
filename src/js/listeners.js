@@ -484,7 +484,7 @@ class Listeners {
     // Speed change
     on.call(player, player.media, 'ratechange', () => {
       // Update UI
-      controls.updateSpeedSetting.call(player, 'speed');
+      (controls.separateSpeedMenu.call(player) ? controls.updateSpeedSetting : controls.updateSetting).call(player, 'speed');
 
       // Save to storage
       player.storage.set({ speed: player.speed });
