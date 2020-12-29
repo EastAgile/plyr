@@ -287,7 +287,7 @@ class Plyr {
 
     // Listen for events if debugging
     if (this.config.debug) {
-      on.call(this, this.elements.container, this.config.events.join(' '), event => {
+      on.call(this, this.elements.container, this.config.events.join(' '), (event) => {
         this.debug.log(`event: ${event.type}`);
       });
     }
@@ -372,47 +372,56 @@ class Plyr {
 
     // Return the promise (for HTML5)
     if (this.googleCastSession) {
-      if (!this.googleCastPlayer.isMediaLoaded || !this.googleCastSameSesssion) {
+      if (!this.googleCastMediaLoadRequest && (!this.googleCastPlayer.isMediaLoaded || !this.googleCastSameSesssion)) {
         const contentType = 'video/mp4';
-        // const url = this.media.dataset.src;
         if (this.config.googleCast && this.config.googleCast.metadata) {
           let urlPromise;
           let metadataPromise;
 
-          if (is.function(this.config.googleCast.streamUrl)) {
+          if (this.googleCastMediaUrl) {
+            urlPromise = Promise.resolve(this.googleCastMediaUrl);
+          } else if (is.function(this.config.googleCast.streamUrl)) {
             urlPromise = this.config.googleCast.streamUrl();
           } else {
             urlPromise = Promise.resolve(this.media.dataset.src);
           }
-          if (is.function(this.config.googleCast.metadata)) {
+
+          if (this.googleCastMediaMetadata) {
+            metadataPromise = Promise.resolve(this.googleCastMediaMetadata);
+          } else if (is.function(this.config.googleCast.metadata)) {
             metadataPromise = this.config.googleCast.metadata();
           } else {
-            metadataPromise = Promise.resolve(this.config.googleCast.metadata)
+            metadataPromise = Promise.resolve(this.config.googleCast.metadata);
           }
           return Promise.all([urlPromise, metadataPromise]).then(([url, metadata]) => {
+            this.googleCastMediaUrl = url;
+            this.googleCastMediaMetadata = metadata;
             const mediaInfo = new window.chrome.cast.media.MediaInfo(url, contentType);
             mediaInfo.metadata = new window.chrome.cast.media.MediaMetadata();
             mediaInfo.metadata.identifier = this.config.googleCast.identifier;
             Object.entries(metadata).forEach(([key, value]) => {
               if (key === 'images') {
-                mediaInfo.metadata.images = value.map(imageUrl => new window.chrome.cast.Image(imageUrl));
+                mediaInfo.metadata.images = value.map((imageUrl) => new window.chrome.cast.Image(imageUrl));
               } else {
                 mediaInfo.metadata[key] = value;
               }
             });
-            const request = new window.chrome.cast.media.LoadRequest(mediaInfo);
-            this.googleCastSession.loadMedia(request).then(
+            this.googleCastMediaLoadRequest = new window.chrome.cast.media.LoadRequest(mediaInfo);
+            this.googleCastSession.loadMedia(this.googleCastMediaLoadRequest).then(
               () => {
                 if (this.media.currentTime > 0) {
                   this.currentTime = this.media.currentTime;
                 }
               },
-              (errorCode) => { this.debug.warn(`Error code: ${errorCode}`); });
-          })
+              (errorCode) => {
+                this.debug.warn(`Error code: ${errorCode}`);
+                this.googleCastMediaLoadRequest = null;
+              },
+            );
+          });
         }
-
       } else {
-        return this.googleCastPlayerController.playOrPause()
+        return this.googleCastPlayerController.playOrPause();
       }
     } else {
       return this.media.play();
@@ -488,7 +497,10 @@ class Plyr {
    * Stop playback
    */
   stop() {
-    if (this.isHTML5) {
+    if (this.googleCastMediaLoaded) {
+      this.googleCastPlayerController.stop();
+      triggerEvent.call(this, this.media, 'pause');
+    } else if (this.isHTML5) {
       this.pause();
       this.restart();
     } else if (is.function(this.media.stop)) {
@@ -640,7 +652,6 @@ class Plyr {
       this.googleCastPlayer.volumeLevel = volume;
       this.googleCastPlayerController.setVolumeLevel();
     }
-
 
     // If muted, and we're increasing volume manually, reset muted state
     if (!is.empty(value) && this.muted && volume > 0) {
@@ -1181,27 +1192,63 @@ class Plyr {
    */
   initGoogleCast() {
     // Show dialog if supported
-    if (!this.googleCastSupported) { return }
+    if (!this.googleCastSupported) {
+      return;
+    }
 
     let receiverApplicationId = window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID;
     if (this.config.googleCast && this.config.googleCast.receiverApplicationId) {
       receiverApplicationId = this.config.googleCast.receiverApplicationId;
     }
 
-
     window.cast.framework.CastContext.getInstance().setOptions({
       receiverApplicationId,
       autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
     });
-    this.googleCastPlayer = new window.cast.framework.RemotePlayer();
-    this.googleCastPlayerController = new window.cast.framework.RemotePlayerController(this.googleCastPlayer);
+
     this.bindGoogleCastEvents.call(this);
   }
 
-  bindGoogleCastEvents() {
-    this.googleCastPlayerController.addEventListener(
+  unbindGoogleCastEvents() {
+    if (!this.googleCastPlayerController) return;
+
+    this.googleCastPlayerController.removeEventListener(
       window.cast.framework.RemotePlayerEventType.IS_CONNECTED_CHANGED,
-      (e) => {
+      this.googleCastOnIsConnectedChanged,
+    );
+
+    this.googleCastPlayerController.removeEventListener(
+      window.cast.framework.RemotePlayerEventType.IS_MEDIA_LOADED_CHANGED,
+      this.googleCastOnIsMediaLoadedChanged,
+    );
+
+    this.googleCastPlayerController.removeEventListener(
+      window.cast.framework.RemotePlayerEventType.MEDIA_INFO_CHANGED,
+      this.googleCastOnMediaInfoChanged,
+    );
+
+    this.googleCastPlayerController.removeEventListener(
+      window.cast.framework.RemotePlayerEventType.PLAYER_STATE_CHANGED,
+      this.googleCastOnPlayerStateChanged,
+    );
+
+    this.googleCastPlayerController.removeEventListener(
+      window.cast.framework.RemotePlayerEventType.CURRENT_TIME_CHANGED,
+      this.googleCastOnCurrentTimeChanged,
+    );
+    this.googleCastPlayer = null;
+    this.googleCastPlayerController = null;
+    this.googleCastMediaLoadRequest = null;
+  }
+
+  bindGoogleCastEvents() {
+    if (!this.googleCastPlayerController) {
+      this.googleCastPlayer = new window.cast.framework.RemotePlayer();
+      this.googleCastPlayerController = new window.cast.framework.RemotePlayerController(this.googleCastPlayer);
+    }
+
+    if (!this.googleCastOnIsConnectedChanged) {
+      this.googleCastOnIsConnectedChanged = (e) => {
         this.googleCastConnected = e.value;
         if (e.value) {
           this.media.pause();
@@ -1216,45 +1263,80 @@ class Plyr {
           this.media.currentTime = this.googleCastPlayer.savedPlayerState.currentTime;
           this.play();
         }
-      },
-    );
+      };
+    }
 
-    this.googleCastPlayerController.addEventListener(
-      window.cast.framework.RemotePlayerEventType.IS_MEDIA_LOADED_CHANGED,
-      (e) => {
+    if (!this.googleCastOnIsMediaLoadedChanged) {
+      this.googleCastOnIsMediaLoadedChanged = (e) => {
         if (e.value && this.timers.googleCastAutoPlay) {
           clearTimeout(this.timers.googleCastAutoPlay);
         }
-      },
-    );
+        this.googleCastMediaLoadRequest = null;
+      };
+    }
 
-    this.googleCastPlayerController.addEventListener(
-      window.cast.framework.RemotePlayerEventType.MEDIA_INFO_CHANGED,
-      (e) => {
+    if (!this.googleCastOnMediaInfoChanged) {
+      this.googleCastOnMediaInfoChanged = (e) => {
         if (e.value) {
           if (this.config.googleCast && this.config.googleCast.identifier) {
             this.googleCastSameSesssion =
               this.config.googleCast.identifier === this.googleCastPlayer.mediaInfo.metadata.identifier;
           }
         }
-      },
+      };
+    }
+
+    if (!this.googleCastOnPlayerStateChanged) {
+      this.googleCastOnPlayerStateChanged = (e) => {
+        if (!this.googleCastSameSesssion) return;
+        switch (e.value) {
+          case 'PAUSED':
+            triggerEvent.call(this, this.media, 'pause');
+            break;
+          case 'PLAYING':
+            triggerEvent.call(this, this.media, 'play');
+            triggerEvent.call(this, this.media, 'playing');
+            break;
+          case 'IDLE':
+            this.stop();
+            break;
+          default:
+            break;
+        }
+      };
+    }
+
+    if (!this.googleCastOnCurrentTimeChanged) {
+      this.googleCastOnCurrentTimeChanged = (e) => {
+        if (!this.googleCastSameSesssion) return;
+        triggerEvent.call(this, this.media, 'timeupdate');
+        triggerEvent.call(this, this.media, 'durationchange');
+      };
+    }
+
+    this.googleCastPlayerController.addEventListener(
+      window.cast.framework.RemotePlayerEventType.IS_CONNECTED_CHANGED,
+      this.googleCastOnIsConnectedChanged,
     );
 
     this.googleCastPlayerController.addEventListener(
-      window.cast.framework.RemotePlayerEventType.IS_PAUSED_CHANGED,
-      () => {
-        if (!this.googleCastSameSesssion) return;
-        triggerEvent.call(this, this.media, 'playing');
-      },
+      window.cast.framework.RemotePlayerEventType.IS_MEDIA_LOADED_CHANGED,
+      this.googleCastOnIsMediaLoadedChanged,
+    );
+
+    this.googleCastPlayerController.addEventListener(
+      window.cast.framework.RemotePlayerEventType.MEDIA_INFO_CHANGED,
+      this.googleCastOnMediaInfoChanged,
+    );
+
+    this.googleCastPlayerController.addEventListener(
+      window.cast.framework.RemotePlayerEventType.PLAYER_STATE_CHANGED,
+      this.googleCastOnPlayerStateChanged,
     );
 
     this.googleCastPlayerController.addEventListener(
       window.cast.framework.RemotePlayerEventType.CURRENT_TIME_CHANGED,
-      () => {
-        if (!this.googleCastSameSesssion) return;
-        triggerEvent.call(this, this.media, 'timeupdate');
-        triggerEvent.call(this, this.media, 'durationchange');
-      },
+      this.googleCastOnCurrentTimeChanged,
     );
   }
 
@@ -1276,7 +1358,6 @@ class Plyr {
   get googleCastMediaLoaded() {
     return (
       this.config.controls.includes('googleCast') &&
-      this.googleCastSession &&
       this.googleCastPlayer &&
       this.googleCastPlayer.isMediaLoaded &&
       this.googleCastSameSesssion
@@ -1410,6 +1491,8 @@ class Plyr {
         // Reset state
         this.ready = false;
 
+        this.unbindGoogleCastEvents();
+
         // Clear for garbage collection
         setTimeout(() => {
           this.elements = null;
@@ -1504,7 +1587,7 @@ class Plyr {
       return null;
     }
 
-    return targets.map(t => new Plyr(t, options));
+    return targets.map((t) => new Plyr(t, options));
   }
 }
 
