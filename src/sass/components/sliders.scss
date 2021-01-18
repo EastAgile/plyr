@@ -19,7 +19,7 @@
 
   &::-webkit-slider-runnable-track {
     @include plyr-range-track();
-    background-image: linear-gradient(to right, currentColor var(--value, 0%), transparent var(--value, 0%));
+    background-image: linear-gradient(to right, var(--plyr-range-track-gradient-color, currentColor) var(--value, 0%), transparent var(--value, 0%));
   }
 
   &::-webkit-slider-thumb {
@@ -39,6 +39,7 @@
 
   &::-moz-range-progress {
     background: currentColor;
+    background-image: linear-gradient(to right,  #0476b1, #20f8e1);
     border-radius: calc(#{$plyr-range-track-height} / 2);
     height: $plyr-range-track-height;
   }
