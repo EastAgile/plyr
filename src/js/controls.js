@@ -905,7 +905,7 @@ const controls = {
     const label = this.elements.speed.buttons[setting].querySelector(`.${this.config.classNames.menu.value}`);
     label.innerHTML = controls.getLabel.call(this, setting, value);
 
-    this.elements.buttons.speed.innerHTML = `${value}x`;
+    this.elements.buttons.speed.dataset.value = `${value}x`;
 
     // Find the radio option and check it
     const target = list && list.querySelector(`[value="${value}"]`);
@@ -1771,7 +1771,14 @@ const controls = {
           'aria-expanded': false,
           class: 'plyr__controls__item plyr__controls__speed',
         });
-        button.innerHTML = '1x';
+        button.innerHTML = '';
+        button.dataset.value = '1x';
+        ['0.7x', '0.8x', '0.9x', '1x'].forEach(speed => {
+          const iconName =  speed === '1x' ? 'speed' : `speed-${speed}`;
+          const icon = controls.createIcon.call(this, iconName);
+          icon.dataset.value = speed;
+          button.appendChild(icon);
+        });
 
         wrapper.appendChild(button);
 

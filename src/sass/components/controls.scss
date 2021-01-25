@@ -2,6 +2,12 @@
 // Controls
 // --------------------------------------------------------------
 
+@mixin speed-value($value) {
+  &[data-value='#{$value}'] svg[data-value='#{$value}'] {
+    display: block;
+  }
+}
+
 // Hide native controls
 .plyr--full-ui ::-webkit-media-controls {
   display: none;
@@ -40,6 +46,17 @@
     &.plyr__time:first-child,
     &.plyr__time + .plyr__time {
       padding-left: 0;
+    }
+  }
+
+  .plyr__controls__item .plyr__controls__speed {
+    $speeds: 0.7, 0.8, 0.9, 1;
+    svg {
+      display:none;
+    }
+
+    @each $speed in $speeds {
+      @include speed-value('#{$speed}x');
     }
   }
 

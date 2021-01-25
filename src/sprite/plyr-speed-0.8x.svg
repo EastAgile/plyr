@@ -2,5 +2,5 @@
 <svg width="24" height="22" viewBox="0 0 24 22" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M4 19.1739C1.6 16.8162 1 13.2797 1 11.8061C1 5.83806 5.92487 1 12 1C18.0751 1 23 5.83806 23 11.8061C23 13.2797 22.4 16.8162 20 19.1739" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="11.8388" cy="17.3481" r="2.25" transform="rotate(19.822 11.8388 17.3481)" stroke="white" stroke-width="1.5"/>
-  <path d="M 16.291 18.106 L 19.003 10.58" stroke="white" stroke-width="1.5" stroke-linecap="round" transform="matrix(0.752487, 0.658608, -0.658608, 0.752487, 13.81428, -8.072363)"/>
+  <path d="M 8.067 6.994 L 10.78 14.52" stroke="white" stroke-width="1.5" stroke-linecap="round" transform="matrix(-1, 0, 0, -1, 18.847, 21.514)"/>
 </svg>
