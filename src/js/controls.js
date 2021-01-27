@@ -1773,8 +1773,11 @@ const controls = {
         });
         button.innerHTML = '';
         button.dataset.value = '1x';
-        ['0.7x', '0.8x', '0.9x', '1x'].forEach(speed => {
-          const iconName =  speed === '1x' ? 'speed' : `speed-${speed}`;
+        const tooltip = createElement('span', { class: this.config.classNames.tooltip }, 'Speed');
+
+        button.appendChild(tooltip);
+        ['0.7x', '0.8x', '0.9x', '1x'].forEach((speed) => {
+          const iconName = speed === '1x' ? 'speed' : `speed-${speed}`;
           const icon = controls.createIcon.call(this, iconName);
           icon.dataset.value = speed;
           button.appendChild(icon);

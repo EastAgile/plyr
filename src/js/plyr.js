@@ -1250,6 +1250,7 @@ class Plyr {
     if (!this.googleCastOnIsConnectedChanged) {
       this.googleCastOnIsConnectedChanged = (e) => {
         this.googleCastConnected = e.value;
+        triggerEvent.call(this, this.media, 'googleCastConnectedChanged');
         if (e.value) {
           this.media.pause();
           if (!this.googleCastMediaLoaded) {

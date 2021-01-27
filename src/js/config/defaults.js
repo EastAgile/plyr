@@ -167,8 +167,8 @@ const defaults = {
     enableCaptions: 'Enable captions',
     disableCaptions: 'Disable captions',
     download: 'Download',
-    enterFullscreen: 'Enter fullscreen',
-    exitFullscreen: 'Exit fullscreen',
+    enterFullscreen: 'Enter Full Screen',
+    exitFullscreen: 'Exit Full Screen',
     frameTitle: 'Player for {title}',
     captions: 'Captions',
     settings: 'Settings',
@@ -268,6 +268,7 @@ const defaults = {
     'controlshidden',
     'controlsshown',
     'ready',
+    'googleCastConnectedChanged',
 
     // YouTube
     'statechange',
