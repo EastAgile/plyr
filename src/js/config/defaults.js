@@ -186,7 +186,7 @@ const defaults = {
     enabled: 'Enabled',
     advertisement: 'Ad',
     qualityBadge: {
-      2160: '4K',
+      2160: 'UHD',
       1440: 'HD',
       1080: 'HD',
       720: 'HD',

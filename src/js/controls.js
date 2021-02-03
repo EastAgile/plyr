@@ -923,7 +923,8 @@ const controls = {
 
       case 'quality':
         if (is.number(value)) {
-          if (this.isVimeo && value === 0) return 'Auto';
+          if (value === 0) return 'Auto';
+          if (value === 2160) return '4K';
 
           const label = i18n.get(`qualityLabel.${value}`, this.config);
 
