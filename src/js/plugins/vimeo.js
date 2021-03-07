@@ -438,7 +438,6 @@ const vimeo = {
         setTimeout(() => {
           const quality = input > 0 ? `${input}p` : 'auto';
           player.embed.setQuality(quality);
-          console.log('set quality---', quality);
         }, 500)
         // // Trigger change event
         triggerEvent.call(player, player.media, 'qualitychange', false, {

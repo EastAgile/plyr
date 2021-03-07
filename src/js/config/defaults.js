@@ -257,6 +257,7 @@ const defaults = {
     'emptied',
     'ratechange',
     'cuechange',
+    'durationchange',
 
     // Custom events
     'download',
