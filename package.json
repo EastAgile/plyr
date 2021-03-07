@@ -31,6 +31,7 @@
   "browserslist": "> 1%",
   "scripts": {
     "build": "gulp build",
+    "copy": "cp dist/plyr.js ~/code/EastAgile/CLI_Studios/ea_CLI_Studios_API/vendor/assets/javascripts/ && cp dist/plyr.css ~/code/EastAgile/CLI_Studios/ea_CLI_Studios_API/vendor/assets/stylesheets/ && cp dist/plyr.svg ~/code/EastAgile/CLI_Studios/ea_CLI_Studios_API/vendor/assets/images/",
     "lint": "eslint src/js && npm run-script remark",
     "lint:fix": "eslint --fix src/js",
     "remark": "remark -f --use 'validate-links=repository:\"sampotts/plyr\"' '{,!(node_modules),.?**/}*.md'",

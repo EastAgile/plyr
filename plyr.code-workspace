@@ -32,6 +32,18 @@
 
     "editor.codeActionsOnSave": {
       "source.fixAll": true
-    }
+    },
+    "sqltools.connections": [
+      {
+        "previewLimit": 50,
+        "server": "localhost",
+        "port": 5432,
+        "driver": "PostgreSQL",
+        "name": "local docker cli",
+        "database": "cli-members_development",
+        "username": "eastagile",
+        "password": "pg-password"
+      }
+    ]
   }
 }
