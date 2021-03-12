@@ -560,7 +560,7 @@ class Plyr {
    * Get current time
    */
   get currentTime() {
-    if (this.googleCastMediaLoaded) {
+    if (this.googleCastLoaded) {
       return Number(this.googleCastPlayer.currentTime);
     }
     return Number(this.media.currentTime);
@@ -1262,7 +1262,9 @@ class Plyr {
           }
         } else if (this.googleCastPlayer.savedPlayerState) {
           this.media.currentTime = this.googleCastPlayer.savedPlayerState.currentTime;
-          this.play();
+          if (this.media.currentTime > 0) {
+            this.play();
+          }
         }
       };
     }
@@ -1300,6 +1302,7 @@ class Plyr {
             break;
           case 'IDLE':
             this.stop();
+            triggerEvent.call(this, this.media, 'pause');
             break;
           default:
             break;
@@ -1354,6 +1357,14 @@ class Plyr {
       this.initGoogleCast.call(this);
     }
     return session;
+  }
+
+  get googleCastLoaded() {
+    return (
+      this.config.controls.includes('googleCast') &&
+      this.googleCastPlayer &&
+      this.googleCastSameSesssion
+    );
   }
 
   get googleCastMediaLoaded() {
